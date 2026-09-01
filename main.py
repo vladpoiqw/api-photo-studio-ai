@@ -83,10 +83,11 @@ async def generate(
 
         image_result = base64.b64decode(image_base64)
 
-        return Response(
-            content=image_result,
-            media_type="image/png"
-        )
+       return {
+    "status": "success",
+    "message": "Изображение успешно создано",
+    "image_base64": image_base64
+}
 
     except Exception as e:
 
