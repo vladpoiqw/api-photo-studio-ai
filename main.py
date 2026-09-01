@@ -2,7 +2,6 @@ import os
 import base64
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import Response
 from openai import OpenAI
 
 app = FastAPI()
