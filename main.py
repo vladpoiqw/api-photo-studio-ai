@@ -1,9 +1,10 @@
 import os
 import base64
+import time
+import requests
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAI
 
 app = FastAPI()
 
@@ -15,16 +16,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = OpenAI(
-    api_key=os.environ.get("OPENAI_API_KEY")
-)
+YANDEX_API_KEY = os.environ.get("YANDEX_API_KEY")
+YANDEX_FOLDER_ID = os.environ.get("YANDEX_FOLDER_ID")
 
 
 @app.get("/")
 def root():
     return {
         "status": "ok",
-        "message": "AI Photo Studio API работает"
+        "message": "AI Photo Studio API работает через Yandex"
     }
 
 
@@ -41,90 +41,139 @@ async def generate(
     style: str = Form("studio")
 ):
 
-    if not os.environ.get("OPENAI_API_KEY"):
+    if not YANDEX_API_KEY:
         raise HTTPException(
             status_code=500,
-            detail="OPENAI_API_KEY не настроен"
+            detail="YANDEX_API_KEY не настроен"
         )
 
-    image_bytes = await image.read()
-
-    if not image_bytes:
+    if not YANDEX_FOLDER_ID:
         raise HTTPException(
-            status_code=400,
-            detail="Файл пустой"
+            status_code=500,
+            detail="YANDEX_FOLDER_ID не настроен"
         )
-
-    content_type = image.content_type
-
-    if content_type not in [
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    ]:
-
-        filename = (image.filename or "").lower()
-
-        if filename.endswith(".png"):
-            content_type = "image/png"
-        elif filename.endswith(".webp"):
-            content_type = "image/webp"
-        else:
-            content_type = "image/jpeg"
 
     prompts = {
         "studio": """
-Transform this product photo into a professional commercial studio photograph.
-Keep the product recognizable and preserve its exact shape, colors and important details.
-Place it on a clean premium studio background with professional product lighting.
-High-end e-commerce photography.
+Create a professional commercial product photograph.
+Clean premium studio background, soft professional lighting,
+high-end e-commerce photography.
 """,
 
         "premium": """
-Transform this product photo into a luxurious premium advertising photograph.
-Preserve the exact product identity, shape, colors and important details.
-Use elegant dramatic lighting and a sophisticated premium background.
-High-end commercial photography.
+Create a luxurious premium product advertising photograph.
+Elegant dramatic lighting, sophisticated premium background,
+high-end commercial photography.
 """,
 
         "interior": """
-Place the product naturally into a beautiful modern interior.
-Preserve the exact product appearance, shape and colors.
-Make the scene realistic, clean and professionally photographed.
+Create a realistic modern interior scene featuring the described product.
+Clean, stylish, premium interior photography.
 """,
 
         "lifestyle": """
-Turn this product photo into a realistic lifestyle advertising photograph.
-Preserve the product identity and important details.
-Create an attractive modern commercial scene suitable for advertising.
+Create a realistic lifestyle advertising photograph.
+Modern attractive environment, professional commercial photography.
 """
     }
 
     prompt = prompts.get(style, prompts["studio"])
 
+    headers = {
+        "Authorization": f"Api-Key {YANDEX_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "modelUri": f"art://{YANDEX_FOLDER_ID}/yandex-art/latest",
+        "generationOptions": {
+            "mimeType": "image/jpeg"
+        },
+        "messages": [
+            {
+                "weight": "1",
+                "text": prompt
+            }
+        ]
+    }
+
     try:
 
-        result = client.images.edit(
-            model="gpt-image-2",
-            image=(
-                image.filename or "product.jpg",
-                image_bytes,
-                content_type
-            ),
-            prompt=prompt
+        response = requests.post(
+            "https://llm.api.cloud.yandex.net/foundationModels/v1/imageGeneration",
+            headers=headers,
+            json=payload,
+            timeout=60
         )
 
-        image_base64 = result.data[0].b64_json
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=response.text
+            )
 
-        return {
-            "status": "success",
-            "image_base64": image_base64
-        }
+        operation = response.json()
+
+        operation_id = operation.get("id")
+
+        if not operation_id:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Yandex не вернул operation ID: {operation}"
+            )
+
+        for _ in range(30):
+
+            time.sleep(2)
+
+            check = requests.get(
+                f"https://operation.api.cloud.yandex.net/operations/{operation_id}",
+                headers={
+                    "Authorization": f"Api-Key {YANDEX_API_KEY}"
+                },
+                timeout=30
+            )
+
+            if check.status_code != 200:
+                raise HTTPException(
+                    status_code=check.status_code,
+                    detail=check.text
+                )
+
+            result = check.json()
+
+            if result.get("done"):
+
+                if "error" in result:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=result["error"]
+                    )
+
+                response_data = result.get("response", {})
+
+                image_data = response_data.get("image")
+
+                if not image_data:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Yandex не вернул изображение: {result}"
+                    )
+
+                return {
+                    "status": "success",
+                    "image_base64": image_data
+                }
+
+        raise HTTPException(
+            status_code=504,
+            detail="Yandex не завершил генерацию за отведённое время"
+        )
+
+    except HTTPException:
+        raise
 
     except Exception as e:
-
-        print("OPENAI ERROR:", repr(e))
-
         raise HTTPException(
             status_code=500,
             detail=str(e)
