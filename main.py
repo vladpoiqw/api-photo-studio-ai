@@ -2,10 +2,19 @@ import os
 import base64
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://vladpoiqw.github.io"
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY")
 )
