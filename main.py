@@ -70,7 +70,7 @@ def test_yandex():
     try:
 
         response = requests.post(
-            "https://llm.api.cloud.yandex.net/foundationModels/v1/imageGeneration",
+            "https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync",
             headers=headers,
             json=payload,
             timeout=60
