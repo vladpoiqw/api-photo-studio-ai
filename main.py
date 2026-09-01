@@ -39,11 +39,13 @@ async def generate(
         )
 
     image_bytes = await image.read()
+    
 if image.content_type not in ["image/jpeg", "image/png", "image/webp"]:
     raise HTTPException(
         status_code=400,
         detail="Поддерживаются только JPG, PNG и WEBP"
     )
+    
     prompts = {
         "studio": """
 Transform this product photo into a professional commercial studio photograph.
