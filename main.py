@@ -39,7 +39,11 @@ async def generate(
         )
 
     image_bytes = await image.read()
-
+if image.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+    raise HTTPException(
+        status_code=400,
+        detail="Поддерживаются только JPG, PNG и WEBP"
+    )
     prompts = {
         "studio": """
 Transform this product photo into a professional commercial studio photograph.
@@ -77,10 +81,10 @@ Create an attractive modern commercial scene suitable for advertising.
     try:
 
         result = client.images.edit(
-            model="gpt-image-2",
-            image=image_bytes,
-            prompt=prompt
-        )
+    model="gpt-image-2",
+    image=(image.filename, image_bytes, image.content_type),
+    prompt=prompt
+)
 
         image_base64 = result.data[0].b64_json
 
