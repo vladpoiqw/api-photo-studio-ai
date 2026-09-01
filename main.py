@@ -1,9 +1,8 @@
 import os
-import base64
 import time
 import requests
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -24,7 +23,7 @@ YANDEX_FOLDER_ID = os.environ.get("YANDEX_FOLDER_ID")
 def root():
     return {
         "status": "ok",
-        "message": "AI Photo Studio API работает через Yandex"
+        "message": "AI Photo Studio работает через Yandex"
     }
 
 
@@ -35,11 +34,8 @@ def health():
     }
 
 
-@app.post("/generate")
-async def generate(
-    image: UploadFile = File(...),
-    style: str = Form("studio")
-):
+@app.post("/test-yandex")
+def test_yandex():
 
     if not YANDEX_API_KEY:
         raise HTTPException(
@@ -53,32 +49,6 @@ async def generate(
             detail="YANDEX_FOLDER_ID не настроен"
         )
 
-    prompts = {
-        "studio": """
-Create a professional commercial product photograph.
-Clean premium studio background, soft professional lighting,
-high-end e-commerce photography.
-""",
-
-        "premium": """
-Create a luxurious premium product advertising photograph.
-Elegant dramatic lighting, sophisticated premium background,
-high-end commercial photography.
-""",
-
-        "interior": """
-Create a realistic modern interior scene featuring the described product.
-Clean, stylish, premium interior photography.
-""",
-
-        "lifestyle": """
-Create a realistic lifestyle advertising photograph.
-Modern attractive environment, professional commercial photography.
-"""
-    }
-
-    prompt = prompts.get(style, prompts["studio"])
-
     headers = {
         "Authorization": f"Api-Key {YANDEX_API_KEY}",
         "Content-Type": "application/json"
@@ -91,8 +61,8 @@ Modern attractive environment, professional commercial photography.
         },
         "messages": [
             {
-                "weight": "1",
-                "text": prompt
+                "weight": 1,
+                "text": "A professional premium studio photograph of a modern smartphone on a clean dark background, realistic commercial product photography"
             }
         ]
     }
@@ -119,7 +89,7 @@ Modern attractive environment, professional commercial photography.
         if not operation_id:
             raise HTTPException(
                 status_code=500,
-                detail=f"Yandex не вернул operation ID: {operation}"
+                detail=f"Yandex не вернул ID операции: {operation}"
             )
 
         for _ in range(30):
@@ -144,36 +114,27 @@ Modern attractive environment, professional commercial photography.
 
             if result.get("done"):
 
-                if "error" in result:
+                if result.get("error"):
                     raise HTTPException(
                         status_code=500,
-                        detail=result["error"]
-                    )
-
-                response_data = result.get("response", {})
-
-                image_data = response_data.get("image")
-
-                if not image_data:
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Yandex не вернул изображение: {result}"
+                        detail=str(result["error"])
                     )
 
                 return {
                     "status": "success",
-                    "image_base64": image_data
+                    "yandex_response": result
                 }
 
         raise HTTPException(
             status_code=504,
-            detail="Yandex не завершил генерацию за отведённое время"
+            detail="Yandex не завершил генерацию за 60 секунд"
         )
 
     except HTTPException:
         raise
 
     except Exception as e:
+
         raise HTTPException(
             status_code=500,
             detail=str(e)
