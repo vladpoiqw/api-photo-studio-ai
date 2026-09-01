@@ -42,33 +42,37 @@ async def generate(
 
     prompts = {
         "studio": """
-        Transform this product photo into a professional commercial studio photograph.
-        Keep the product itself recognizable and preserve its shape, colors and important details.
-        Place it on a clean premium studio background with professional product lighting.
-        High-end e-commerce photography.
-        """,
+Transform this product photo into a professional commercial studio photograph.
+Keep the product recognizable.
+Preserve its shape, colors and important details.
+Place it on a clean premium studio background with professional product lighting.
+High-end e-commerce photography.
+""",
 
         "premium": """
-        Transform this product photo into a luxurious premium advertising photograph.
-        Preserve the exact product identity, shape and important details.
-        Use dramatic but elegant lighting, sophisticated dark premium background,
-        realistic reflections and high-end commercial photography.
-        """,
+Transform this product photo into a luxurious premium advertising photograph.
+Preserve the exact product identity, shape and important details.
+Use elegant dramatic lighting and a sophisticated premium background.
+High-end commercial photography.
+""",
 
         "interior": """
-        Place the product naturally into a beautiful modern interior.
-        Preserve the exact product appearance, shape and colors.
-        Make the scene realistic, clean and professionally photographed.
-        """,
+Place the product naturally into a beautiful modern interior.
+Preserve the exact product appearance, shape and colors.
+Make the scene realistic, clean and professionally photographed.
+""",
 
         "lifestyle": """
-        Turn this product photo into a realistic lifestyle advertising photograph.
-        Preserve the product identity and important details.
-        Create an attractive modern commercial scene suitable for social media advertising.
-        """
+Turn this product photo into a realistic lifestyle advertising photograph.
+Preserve the product identity and important details.
+Create an attractive modern commercial scene suitable for advertising.
+"""
     }
 
-    prompt = prompts.get(style, prompts["studio"])
+    prompt = prompts.get(
+        style,
+        prompts["studio"]
+    )
 
     try:
 
@@ -80,13 +84,11 @@ async def generate(
 
         image_base64 = result.data[0].b64_json
 
-        image_result = base64.b64decode(image_base64)
-
-       return {
-    "status": "success",
-    "message": "Изображение успешно создано",
-    "image_base64": image_base64
-}
+        return {
+            "status": "success",
+            "message": "Изображение успешно создано",
+            "image_base64": image_base64
+        }
 
     except Exception as e:
 
